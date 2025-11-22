@@ -1,7 +1,7 @@
 
 import { Component, ChangeDetectionStrategy, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ForexAnalysis } from '../../models/analysis.model';
+import { ForexAnalysis, Conclusion } from '../../models/analysis.model';
 
 @Component({
   selector: 'app-analysis',
@@ -14,4 +14,5 @@ export class AnalysisComponent {
   isLoading = input.required<boolean>();
   analysis = input.required<ForexAnalysis | null>();
   error = input.required<string | null>();
+  conclusion = input.required<Conclusion | null>();
 }

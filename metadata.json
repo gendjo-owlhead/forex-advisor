@@ -1,7 +1,5 @@
 {
   "name": "Forex Signal AI",
   "description": "An AI-powered applet that provides Forex trading analysis and signals. It uses a chart and analytical tools to predict trade movements, offering users potential upward and downward signals.",
-  "requestFramePermissions": [
-    "camera"
-  ]
+  "requestFramePermissions": []
 }

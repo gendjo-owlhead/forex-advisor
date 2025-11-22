@@ -1,23 +1,55 @@
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-  <div class="lg:col-span-1 bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700">
-    <app-controls 
-        [initialPair]="selectedPair()" 
-        (pairSelected)="handlePairSelection($event)"
-        (timeframeSelected)="handleTimeframeSelection($event)"
-        (analyze)="handleAnalysisRequest($event)">
-    </app-controls>
+
+
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+  
+  <!-- Left Column: Controls & Summaries -->
+  <div class="lg:col-span-2 flex flex-col gap-8">
+    <section class="bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700">
+      <app-controls 
+          [initialPair]="selectedPair()" 
+          (pairSelected)="handlePairSelection($event)"
+          (timeframeSelected)="handleTimeframeSelection($event)"
+          (analyze)="handleAnalysisRequest($event)">
+      </app-controls>
+    </section>
+
+    <section class="bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700">
+        <app-conclusion [conclusion]="analysisResult()?.conclusion"></app-conclusion>
+    </section>
+    
+    <section class="bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700">
+        <app-backtesting
+            [winRate]="winRate()"
+            [totalTrades]="totalTrades()"
+            [profitFactor]="profitFactor()">
+        </app-backtesting>
+    </section>
+
+    <section class="bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700">
+        <app-augmented-graph></app-augmented-graph>
+    </section>
+
+     <section class="bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700">
+        <app-alerts></app-alerts>
+    </section>
   </div>
 
-  <div class="lg:col-span-2 space-y-8">
+  <!-- Right Column: Chart & Detailed Analysis -->
+  <div class="lg:col-span-3 flex flex-col gap-8">
     <section class="bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700">
       <h2 class="text-2xl font-semibold mb-4 text-sky-300">Price Chart: {{ selectedPair() }} ({{ selectedTimeframe() }})</h2>
       <app-chart [pair]="selectedPair()" [timeframe]="selectedTimeframe()"></app-chart>
     </section>
     
-    <section class="bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700 min-h-[300px]">
-       <h2 class="text-2xl font-semibold mb-4 text-sky-300">AI Analysis & Signals</h2>
-       <app-analysis [isLoading]="isLoading()" [analysis]="analysisResult()" [error]="error()"></app-analysis>
+    <section class="bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700 min-h-[400px]">
+       <h2 class="text-2xl font-semibold mb-4 text-sky-300">AI Narrative Analysis</h2>
+       <app-analysis 
+            [isLoading]="isLoading()" 
+            [analysis]="analysisResult()" 
+            [error]="error()"
+            [conclusion]="analysisResult()?.conclusion">
+       </app-analysis>
     </section>
   </div>
 </div>

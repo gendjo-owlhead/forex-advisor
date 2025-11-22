@@ -1,4 +1,3 @@
-
 import { Component, ChangeDetectionStrategy, output, input, signal, effect, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -33,16 +32,16 @@ import { FormsModule } from '@angular/forms';
         </select>
       </div>
 
-      <div class="flex items-center justify-between bg-gray-700/50 p-3 rounded-md">
-          <label for="thinking-mode" class="flex flex-col">
-            <span class="font-medium text-gray-200">Thinking Mode</span>
-            <span class="text-xs text-gray-400">For more complex analysis</span>
-          </label>
-          <div class="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" id="thinking-mode" class="sr-only peer" [(ngModel)]="useThinkingMode">
-            <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-focus:ring-2 peer-focus:ring-sky-500 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600"></div>
-          </div>
-      </div>
+      <label for="thinking-mode" class="flex items-center justify-between bg-gray-700/50 p-3 rounded-md cursor-pointer">
+        <div class="flex flex-col">
+          <span class="font-medium text-gray-200">Thinking Mode</span>
+          <span class="text-xs text-gray-400">For more complex analysis</span>
+        </div>
+        <div class="relative inline-flex items-center">
+          <input type="checkbox" id="thinking-mode" class="sr-only peer" [(ngModel)]="useThinkingMode">
+          <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-focus:ring-2 peer-focus:ring-sky-500 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600"></div>
+        </div>
+      </label>
 
       <button 
         (click)="triggerAnalysis()"

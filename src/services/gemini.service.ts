@@ -1,15 +1,13 @@
 
 import { Injectable } from '@angular/core';
-import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
-// FIX: Import GroundingSource to correctly type the API response data.
-import { ForexAnalysis, GroundingSource } from '../models/analysis.model';
+import { GoogleGenAI } from "@google/genai";
+import { ForexAnalysis, GroundingSource, Conclusion } from '../models/analysis.model';
 
 @Injectable({
   providedIn: 'root'
 })
 export class GeminiService {
   private ai: GoogleGenAI;
-  private chat: Chat | null = null;
 
   constructor() {
     if (!process.env.API_KEY) {
@@ -22,7 +20,6 @@ export class GeminiService {
     const prompt = `
       Act as an expert quantitative trading analyst.
       Your task is to provide a detailed, real-time technical and fundamental analysis for the Forex currency pair: ${pair}, specifically for the ${timeframe} timeframe.
-
       Your analysis MUST be based on the latest available information from a web search.
 
       1.  **Technical Analysis (${timeframe} chart):**
@@ -36,7 +33,19 @@ export class GeminiService {
 
       3.  **Synthesis & Outlook:**
         *   Synthesize the technical and fundamental analysis. Is there a confluence of signals? Are indicators confirming the price action?
-        *   Conclude with a potential short-term outlook (next few periods on the ${timeframe} chart) and a medium-term outlook. Provide a clear, actionable summary.
+        *   Provide a detailed outlook.
+
+      4.  **Actionable Conclusion:**
+        *   Finally, and most importantly, provide a clear, actionable conclusion.
+        *   You MUST embed a single, clean JSON object within a \`\`\`json code block.
+        *   This JSON object MUST have the following exact structure:
+          {
+            "signal": "Buy" | "Sell" | "Hold",
+            "entry": "string",
+            "take_profit": "string",
+            "stop_loss": "string"
+          }
+        *   Example for "entry": "1.0850 - 1.0865". For other fields, provide a single price target.
     `;
 
     const config: any = {
@@ -55,7 +64,24 @@ export class GeminiService {
         config: config
       });
       
-      const analysisText = response.text;
+      let analysisText = response.text;
+      let conclusion: Conclusion | null = null;
+      
+      // Extract JSON conclusion from the text
+      const jsonRegex = /```json\s*([\s\S]*?)\s*```/;
+      const match = analysisText.match(jsonRegex);
+      
+      if (match && match[1]) {
+        try {
+          conclusion = JSON.parse(match[1]);
+          // Remove the JSON block from the main analysis text for a cleaner display
+          analysisText = analysisText.replace(jsonRegex, '').trim();
+        } catch (jsonError) {
+          console.error('Failed to parse JSON conclusion:', jsonError);
+          // Leave conclusion as null, the text will still be displayed.
+        }
+      }
+
       const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
       
       const sources: GroundingSource[] = groundingChunks
@@ -67,55 +93,17 @@ export class GeminiService {
           (source): source is GroundingSource => !!source.uri && !!source.title
         );
 
-      // Deduplicate sources based on URI
       const uniqueSources = Array.from(new Map(sources.map(item => [item.uri, item])).values());
 
       return {
         analysis: analysisText,
         sources: uniqueSources,
+        conclusion: conclusion,
       };
 
     } catch (error) {
       console.error('Error calling Gemini API:', error);
       throw new Error('Failed to get prediction from AI model.');
     }
-  }
-
-  async analyzeImage(prompt: string, imageBase64: string, mimeType: string): Promise<string> {
-    const imagePart = {
-      inlineData: {
-        mimeType: mimeType,
-        data: imageBase64,
-      },
-    };
-    const textPart = { text: prompt };
-
-    try {
-      const response = await this.ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: { parts: [textPart, imagePart] },
-      });
-      return response.text;
-    } catch (error) {
-      console.error('Error calling Gemini API for image analysis:', error);
-      throw new Error('Failed to analyze the image.');
-    }
-  }
-
-  startChat(): void {
-    this.chat = this.ai.chats.create({
-        model: 'gemini-2.5-flash',
-        config: {
-            systemInstruction: `You are an expert AI trading analyst named 'Signal'. Your purpose is to assist users by providing speculative trading analysis, insights, and potential trading ideas for the Forex market and other financial instruments. You can analyze market trends, identify patterns, and suggest potential buy or sell signals based on the data you have. 
-It is crucial that with every response that contains a trading suggestion, you MUST include the following disclaimer: 'Disclaimer: This is not financial advice. All trading involves significant risk. The analysis provided is for informational purposes only and should not be considered a recommendation to buy or sell any security. Always do your own research and consult with a qualified financial advisor before making any investment decisions.'`,
-        },
-    });
-  }
-
-  async sendMessageStream(message: string): Promise<AsyncGenerator<GenerateContentResponse>> {
-    if (!this.chat) {
-        this.startChat();
-    }
-    return this.chat!.sendMessageStream({ message });
   }
 }

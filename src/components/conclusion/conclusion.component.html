@@ -1,0 +1,67 @@
+
+<div class="space-y-4">
+  <h2 class="text-2xl font-semibold text-sky-300">Conclusion</h2>
+  
+  @if (conclusion(); as conc) {
+    <div class="animate-fade-in">
+      <!-- Signal -->
+      @if (conc.signal === 'Buy') {
+        <div class="flex items-center gap-4 p-4 rounded-lg bg-emerald-900/50 border border-emerald-700">
+          <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-emerald-500">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-2xl font-bold text-emerald-300">BUY Signal</h3>
+            <p class="text-emerald-400">Potential upward movement detected.</p>
+          </div>
+        </div>
+      } @else if (conc.signal === 'Sell') {
+         <div class="flex items-center gap-4 p-4 rounded-lg bg-red-900/50 border border-red-700">
+          <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-red-500">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-2xl font-bold text-red-300">SELL Signal</h3>
+            <p class="text-red-400">Potential downward movement detected.</p>
+          </div>
+        </div>
+      } @else {
+        <div class="flex items-center gap-4 p-4 rounded-lg bg-gray-700/50 border border-gray-600">
+          <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-gray-500">
+             <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 5.523-4.477 10-10 10S1 17.523 1 12 5.477 2 11 2s10 4.477 10 10z" />
+             </svg>
+          </div>
+          <div>
+            <h3 class="text-2xl font-bold text-gray-300">HOLD</h3>
+            <p class="text-gray-400">Neutral market conditions detected.</p>
+          </div>
+        </div>
+      }
+
+      <!-- Order Ranges -->
+      <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+        <div class="bg-gray-700/50 p-4 rounded-lg">
+          <h4 class="text-sm font-medium text-gray-400">Entry Range</h4>
+          <p class="text-lg font-semibold text-white">{{ conc.entry }}</p>
+        </div>
+        <div class="bg-gray-700/50 p-4 rounded-lg">
+          <h4 class="text-sm font-medium text-gray-400">Take Profit</h4>
+          <p class="text-lg font-semibold text-emerald-400">{{ conc.take_profit }}</p>
+        </div>
+        <div class="bg-gray-700/50 p-4 rounded-lg">
+          <h4 class="text-sm font-medium text-gray-400">Stop Loss</h4>
+          <p class="text-lg font-semibold text-red-400">{{ conc.stop_loss }}</p>
+        </div>
+      </div>
+    </div>
+  } @else {
+    <div class="flex items-center justify-center h-full text-center text-gray-500 min-h-[150px]">
+        <p>Run an analysis to see the AI's conclusion and suggested order ranges.</p>
+    </div>
+  }
+</div>
