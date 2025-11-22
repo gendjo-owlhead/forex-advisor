@@ -1,9 +1,10 @@
 
+export interface GroundingSource {
+  uri: string;
+  title: string;
+}
+
 export interface ForexAnalysis {
-  pair: string;
-  prediction: string;
-  upwardSignal: string;
-  downwardSignal: string;
-  confidence: string;
-  disclaimer: string;
+  analysis: string;
+  sources: GroundingSource[];
 }

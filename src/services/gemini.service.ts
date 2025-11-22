@@ -1,7 +1,8 @@
 
 import { Injectable } from '@angular/core';
-import { GoogleGenAI, Type, Chat, GenerateContentResponse } from "@google/genai";
-import { ForexAnalysis } from '../models/analysis.model';
+import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
+// FIX: Import GroundingSource to correctly type the API response data.
+import { ForexAnalysis, GroundingSource } from '../models/analysis.model';
 
 @Injectable({
   providedIn: 'root'
@@ -17,34 +18,34 @@ export class GeminiService {
     this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   }
 
-  async getForexPrediction(pair: string, useThinkingMode: boolean): Promise<ForexAnalysis> {
+  async getForexPrediction(pair: string, useThinkingMode: boolean, timeframe: string): Promise<ForexAnalysis> {
     const prompt = `
-      Analyze the Forex currency pair: ${pair}. 
-      Provide a detailed technical analysis, considering major trends, support/resistance levels, and key indicators.
-      Based on your analysis, generate potential upward and downward signals.
+      Act as an expert quantitative trading analyst.
+      Your task is to provide a detailed, real-time technical and fundamental analysis for the Forex currency pair: ${pair}, specifically for the ${timeframe} timeframe.
+
+      Your analysis MUST be based on the latest available information from a web search.
+
+      1.  **Technical Analysis (${timeframe} chart):**
+        *   Analyze the current price action and identify key candlestick patterns (e.g., Doji, Engulfing, Hammer).
+        *   Identify major support and resistance levels relevant to this timeframe.
+        *   Incorporate multiple technical indicators appropriate for the ${timeframe} timeframe. For shorter timeframes (1H and below), focus on momentum indicators like RSI and Stochastics. For longer timeframes (4H, 1D), use trend-following indicators like Moving Averages (e.g., 50, 200 EMA) and MACD.
+        *   Mention how these indicators, when backtested on historical data for this pair, typically perform.
+
+      2.  **Fundamental Analysis:**
+        *   Briefly summarize any recent high-impact news or economic data (e.g., interest rate decisions, inflation reports, geopolitical events) that could be influencing the pair's movement right now.
+
+      3.  **Synthesis & Outlook:**
+        *   Synthesize the technical and fundamental analysis. Is there a confluence of signals? Are indicators confirming the price action?
+        *   Conclude with a potential short-term outlook (next few periods on the ${timeframe} chart) and a medium-term outlook. Provide a clear, actionable summary.
     `;
 
-    const responseSchema = {
-      type: Type.OBJECT,
-      properties: {
-        pair: { type: Type.STRING, description: 'The currency pair analyzed.' },
-        prediction: { type: Type.STRING, description: "A brief summary of the market sentiment (e.g., 'Bullish', 'Bearish', 'Neutral')." },
-        upwardSignal: { type: Type.STRING, description: 'A detailed explanation for a potential upward movement, including possible entry points and targets.' },
-        downwardSignal: { type: Type.STRING, description: 'A detailed explanation for a potential downward movement, including possible entry points and targets.' },
-        confidence: { type: Type.STRING, description: "Confidence level in this prediction (e.g., 'High', 'Medium', 'Low')." },
-        disclaimer: { type: Type.STRING, description: 'A standard trading disclaimer about risks.' },
-      },
-      required: ['pair', 'prediction', 'upwardSignal', 'downwardSignal', 'confidence', 'disclaimer']
-    };
-
     const config: any = {
-        responseMimeType: "application/json",
-        responseSchema: responseSchema,
-        temperature: 0.5,
+        tools: [{googleSearch: {}}],
+        temperature: 0.2,
     };
 
     if (useThinkingMode) {
-      config.thinkingConfig = { thinkingBudget: 32768 };
+      config.temperature = 0.7;
     }
 
     try {
@@ -53,9 +54,26 @@ export class GeminiService {
         contents: prompt,
         config: config
       });
+      
+      const analysisText = response.text;
+      const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+      
+      const sources: GroundingSource[] = groundingChunks
+        .map((chunk: any) => ({
+          uri: chunk.web?.uri,
+          title: chunk.web?.title,
+        }))
+        .filter(
+          (source): source is GroundingSource => !!source.uri && !!source.title
+        );
 
-      const jsonText = response.text.trim();
-      return JSON.parse(jsonText) as ForexAnalysis;
+      // Deduplicate sources based on URI
+      const uniqueSources = Array.from(new Map(sources.map(item => [item.uri, item])).values());
+
+      return {
+        analysis: analysisText,
+        sources: uniqueSources,
+      };
 
     } catch (error) {
       console.error('Error calling Gemini API:', error);

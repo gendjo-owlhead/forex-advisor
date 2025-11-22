@@ -1,3 +1,4 @@
+
 import { Component, ChangeDetectionStrategy, input, AfterViewInit, OnChanges, SimpleChanges, ElementRef, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
@@ -18,11 +19,19 @@ declare const TradingView: any;
 })
 export class ChartComponent implements AfterViewInit, OnChanges {
   pair = input.required<string>();
+  timeframe = input.required<string>();
   
   chartContainer = viewChild.required<ElementRef>('chartContainer');
 
   private widget: any = null;
   private isViewInitialized = false;
+
+  private timeframeMap: { [key: string]: string } = {
+    '15m': '15',
+    '1H': '60',
+    '4H': '240',
+    '1D': 'D',
+  };
 
   ngAfterViewInit(): void {
     this.isViewInitialized = true;
@@ -30,8 +39,8 @@ export class ChartComponent implements AfterViewInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    // Re-create the widget if the pair changes after the view has been initialized.
-    if (this.isViewInitialized && changes['pair'] && !changes['pair'].isFirstChange()) {
+    // Re-create the widget if the pair or timeframe changes after the view has been initialized.
+    if (this.isViewInitialized && (changes['pair'] || changes['timeframe'])) {
       this.createWidget();
     }
   }
@@ -48,11 +57,12 @@ export class ChartComponent implements AfterViewInit, OnChanges {
     
     // TradingView symbols for forex are like 'FX_IDC:EURUSD'
     const symbol = `FX_IDC:${this.pair().replace('/', '')}`;
+    const interval = this.timeframeMap[this.timeframe()] || '60';
 
     this.widget = new TradingView.widget({
       autosize: true,
       symbol: symbol,
-      interval: "60", // 1 Hour interval
+      interval: interval,
       timezone: "Etc/UTC",
       theme: "dark",
       style: "1", // Candlesticks

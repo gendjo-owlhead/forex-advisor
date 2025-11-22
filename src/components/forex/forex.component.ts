@@ -22,6 +22,7 @@ export class ForexComponent {
   analysisResult = signal<ForexAnalysis | null>(null);
   error = signal<string | null>(null);
   selectedPair = signal<string>('EUR/USD');
+  selectedTimeframe = signal<string>('1H');
 
   constructor() {
     effect(() => {
@@ -29,6 +30,7 @@ export class ForexComponent {
       this.analysisResult();
       this.error();
       this.selectedPair();
+      this.selectedTimeframe();
       this.cdr.markForCheck();
     });
   }
@@ -39,12 +41,22 @@ export class ForexComponent {
     this.error.set(null);
   }
 
-  async handleAnalysisRequest({ pair, useThinkingMode }: { pair: string, useThinkingMode: boolean }): Promise<void> {
+  handleTimeframeSelection(timeframe: string): void {
+    this.selectedTimeframe.set(timeframe);
+    // Optional: Clear previous analysis when timeframe changes for clarity
+    this.analysisResult.set(null); 
+    this.error.set(null);
+  }
+
+  async handleAnalysisRequest({ pair, useThinkingMode, timeframe }: { pair: string, useThinkingMode: boolean, timeframe: string }): Promise<void> {
     this.isLoading.set(true);
     this.error.set(null);
     this.analysisResult.set(null);
     try {
-      const result = await this.geminiService.getForexPrediction(pair, useThinkingMode);
+      // Ensure the component's state is in sync before the request
+      this.selectedPair.set(pair);
+      this.selectedTimeframe.set(timeframe);
+      const result = await this.geminiService.getForexPrediction(pair, useThinkingMode, timeframe);
       this.analysisResult.set(result);
     } catch (e) {
       console.error('Error getting analysis:', e);

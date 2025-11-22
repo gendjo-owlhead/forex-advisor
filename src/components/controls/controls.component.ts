@@ -21,6 +21,18 @@ import { FormsModule } from '@angular/forms';
         </select>
       </div>
 
+      <div>
+        <label for="timeframe" class="block text-sm font-medium text-gray-300 mb-2">Timeframe</label>
+        <select id="timeframe" 
+                [(ngModel)]="selectedTimeframe"
+                (ngModelChange)="onTimeframeChange($event)"
+                class="w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500">
+          @for (time of timeframes; track time.value) {
+            <option [value]="time.value">{{ time.label }}</option>
+          }
+        </select>
+      </div>
+
       <div class="flex items-center justify-between bg-gray-700/50 p-3 rounded-md">
           <label for="thinking-mode" class="flex flex-col">
             <span class="font-medium text-gray-200">Thinking Mode</span>
@@ -44,13 +56,22 @@ import { FormsModule } from '@angular/forms';
 export class ControlsComponent {
   initialPair = input.required<string>();
   pairSelected = output<string>();
-  analyze = output<{ pair: string, useThinkingMode: boolean }>();
+  timeframeSelected = output<string>();
+  analyze = output<{ pair: string, useThinkingMode: boolean, timeframe: string }>();
 
   selectedPair = 'EUR/USD';
+  selectedTimeframe = '1H';
   useThinkingMode = false;
 
   readonly currencyPairs = [
     'EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF', 'AUD/USD', 'USD/CAD', 'NZD/USD', 'EUR/GBP', 'EUR/JPY', 'GBP/JPY'
+  ];
+
+  readonly timeframes = [
+      { value: '15m', label: '15 Minutes' },
+      { value: '1H', label: '1 Hour' },
+      { value: '4H', label: '4 Hours' },
+      { value: '1D', label: '1 Day' },
   ];
 
   constructor(private cdr: ChangeDetectorRef) {
@@ -65,7 +86,16 @@ export class ControlsComponent {
     this.pairSelected.emit(pair);
   }
 
+  onTimeframeChange(timeframe: string): void {
+    this.selectedTimeframe = timeframe;
+    this.timeframeSelected.emit(timeframe);
+  }
+
   triggerAnalysis(): void {
-    this.analyze.emit({ pair: this.selectedPair, useThinkingMode: this.useThinkingMode });
+    this.analyze.emit({ 
+        pair: this.selectedPair, 
+        useThinkingMode: this.useThinkingMode,
+        timeframe: this.selectedTimeframe 
+    });
   }
 }
