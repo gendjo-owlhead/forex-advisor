@@ -1,0 +1,41 @@
+
+<div class="flex flex-col max-w-3xl mx-auto h-[70vh] bg-gray-800/50 rounded-lg shadow-2xl border border-gray-700">
+  <!-- Chat messages area -->
+  <div #chatContainer class="flex-1 p-6 space-y-4 overflow-y-auto">
+    @for (message of messages(); track $index) {
+      <div class="flex" [class.justify-end]="message.role === 'user'">
+        <div class="rounded-lg px-4 py-2 max-w-sm"
+             [class.bg-sky-600]="message.role === 'user'"
+             [class.bg-gray-700]="message.role === 'model'">
+          
+          @if (message.text) {
+             <p class="text-white whitespace-pre-wrap">{{ message.text }}</p>
+          } @else {
+            <div class="flex items-center justify-center">
+                <div class="w-2 h-2 bg-sky-300 rounded-full animate-pulse [animation-delay:-0.3s]"></div>
+                <div class="w-2 h-2 bg-sky-300 rounded-full animate-pulse [animation-delay:-0.15s] mx-1"></div>
+                <div class="w-2 h-2 bg-sky-300 rounded-full animate-pulse"></div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Input area -->
+  <div class="p-4 border-t border-gray-700">
+    <div class="flex items-center space-x-2">
+      <input type="text"
+             [(ngModel)]="userInput"
+             (keyup.enter)="sendMessage()"
+             [disabled]="isLoading()"
+             placeholder="Type your message..."
+             class="flex-1 w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 disabled:opacity-50">
+      <button (click)="sendMessage()" 
+              [disabled]="isLoading() || !userInput()"
+              class="inline-flex justify-center items-center px-4 py-2 border border-transparent text-base font-medium rounded-md text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 focus:ring-offset-gray-900 disabled:bg-sky-800 disabled:cursor-not-allowed">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.428A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+      </button>
+    </div>
+  </div>
+</div>

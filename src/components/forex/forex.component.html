@@ -1,0 +1,18 @@
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+  <div class="lg:col-span-1 bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700">
+    <app-controls [initialPair]="selectedPair()" (pairSelected)="handlePairSelection($event)" (analyze)="handleAnalysisRequest($event)"></app-controls>
+  </div>
+
+  <div class="lg:col-span-2 space-y-8">
+    <section class="bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700">
+      <h2 class="text-2xl font-semibold mb-4 text-sky-300">Price Chart: {{ selectedPair() }}</h2>
+      <app-chart [pair]="selectedPair()"></app-chart>
+    </section>
+    
+    <section class="bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700 min-h-[300px]">
+       <h2 class="text-2xl font-semibold mb-4 text-sky-300">AI Analysis & Signals</h2>
+       <app-analysis [isLoading]="isLoading()" [analysis]="analysisResult()" [error]="error()"></app-analysis>
+    </section>
+  </div>
+</div>
