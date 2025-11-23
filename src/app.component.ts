@@ -14,5 +14,5 @@ import { StocksComponent } from './components/stocks/stocks.component';
 })
 export class AppComponent {
   title = 'MarketPulse AI';
-  activeTab = signal<'forex' | 'crypto' | 'stocks'>('forex');
+  activeTab = signal<'forex' | 'crypto' | 'stocks'>('crypto');
 }
