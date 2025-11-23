@@ -1,74 +1,67 @@
+<div class="h-full flex flex-col">
+  <div class="mb-4">
+    <h3 class="text-xl font-semibold text-sky-300 flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+      </svg>
+      Backtest Trade History
+    </h3>
+    <div class="mt-2 p-3 bg-gray-800 rounded border border-gray-700 text-sm">
+      <div class="font-bold text-emerald-400 mb-1">{{ strategyInfo.name }}</div>
+      <p class="text-gray-400 mb-2">{{ strategyInfo.description }}</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+        <div>
+          <span class="text-gray-500 font-bold">BUY:</span>
+          <ul class="list-disc list-inside text-gray-300">
+            @for (rule of strategyInfo.buyRules; track rule) { <li>{{ rule }}</li> }
+          </ul>
+        </div>
+        <div>
+          <span class="text-gray-500 font-bold">SELL:</span>
+          <ul class="list-disc list-inside text-gray-300">
+            @for (rule of strategyInfo.sellRules; track rule) { <li>{{ rule }}</li> }
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
 
-<div class="space-y-4">
-  <h2 class="text-2xl font-semibold text-sky-300">Trade Log</h2>
-
-  @if (trades().length > 0) {
-    <div class="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-      @for (trade of trades(); track trade.id) {
-        <div class="bg-gray-700/50 p-4 rounded-lg animate-fade-in">
-          <div class="flex justify-between items-start">
-            <div>
-              <div class="flex items-center gap-3">
-                @if (trade.conclusion.signal === 'Buy') {
-                  <span class="font-bold text-emerald-400">BUY</span>
-                } @else {
-                  <span class="font-bold text-red-400">SELL</span>
-                }
-                <span class="font-semibold text-white">{{ trade.pair }}</span>
-                <span class="text-xs text-gray-400 bg-gray-600 px-2 py-0.5 rounded-full">{{ trade.timeframe }}</span>
+  <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar max-h-[400px]">
+    @if (trades().length === 0) {
+      <div class="text-gray-500 text-center py-8 italic">
+        No trades executed in this backtest period.
+      </div>
+    } @else {
+      <div class="space-y-3">
+        @for (trade of trades(); track trade.entryTime) {
+          <div class="bg-gray-900/50 rounded-lg p-4 border border-gray-700 hover:border-gray-600 transition-colors">
+            <div class="flex justify-between items-start mb-2">
+              <div class="flex items-center gap-2">
+                <span [class]="trade.type === 'long' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'" 
+                      class="px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider">
+                  {{ trade.type }}
+                </span>
+                <span class="text-gray-400 text-xs">{{ trade.entryTime | date:'short' }}</span>
               </div>
-              <div class="text-xs text-gray-400 mt-2">
-                <span>Entry: {{ trade.conclusion.entry }}</span> |
-                <span>TP: {{ trade.conclusion.take_profit }}</span> |
-                <span>SL: {{ trade.conclusion.stop_loss }}</span>
-              </div>
+              <span [class]="trade.status === 'Win' ? 'text-emerald-400' : 'text-rose-400'" class="font-bold text-sm flex items-center gap-1">
+                {{ trade.status === 'Win' ? '+' : '' }}{{ trade.pnl | currency:'USD':'symbol':'1.2-2' }}
+                <span class="text-xs opacity-75">({{ trade.pnlPercent | number:'1.2-2' }}%)</span>
+              </span>
             </div>
-            
-            <div class="text-right">
-              @if (trade.status === 'Pending') {
-                <div class="flex flex-col sm:flex-row gap-2">
-                   <button (click)="onValidate(trade.id, 'Win')"
-                          class="px-3 py-1 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md transition-colors">
-                     Mark as Win
-                   </button>
-                   <button (click)="onValidate(trade.id, 'Loss')"
-                           class="px-3 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors">
-                     Mark as Loss
-                   </button>
-                </div>
-              } @else if (trade.status === 'Win') {
-                <div class="flex items-center gap-2 px-3 py-1 text-emerald-300 bg-emerald-900/50 border border-emerald-700 rounded-md">
-                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-sm font-semibold">Win</span>
-                </div>
-              } @else if (trade.status === 'Loss') {
-                <div class="flex items-center gap-2 px-3 py-1 text-red-300 bg-red-900/50 border border-red-700 rounded-md">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-sm font-semibold">Loss</span>
-                </div>
-              }
+
+            <div class="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span class="text-gray-500 text-xs block uppercase tracking-wider">Entry</span>
+                <span class="text-gray-300 font-mono">{{ trade.entryPrice | number:'1.2-5' }}</span>
+              </div>
+              <div class="text-right">
+                <span class="text-gray-500 text-xs block uppercase tracking-wider">Exit</span>
+                <span class="text-gray-300 font-mono">{{ trade.exitPrice | number:'1.2-5' }}</span>
+              </div>
             </div>
           </div>
-        </div>
-      }
-    </div>
-  } @else {
-    <div class="flex items-center justify-center h-full text-center text-gray-500 min-h-[100px] bg-gray-700/20 rounded-lg">
-        <p>Generated trade signals will appear here for validation.</p>
-    </div>
-  }
+        }
+      </div>
+    }
+  </div>
 </div>
-
-<style>
-  @keyframes fade-in {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  .animate-fade-in {
-    animation: fade-in 0.5s ease-out forwards;
-  }
-</style>

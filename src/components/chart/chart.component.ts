@@ -20,6 +20,7 @@ declare const TradingView: any;
 export class ChartComponent implements AfterViewInit, OnChanges {
   pair = input.required<string>();
   timeframe = input.required<string>();
+  marketType = input<'forex' | 'crypto' | 'stocks'>('forex');
   
   chartContainer = viewChild.required<ElementRef>('chartContainer');
 
@@ -40,7 +41,7 @@ export class ChartComponent implements AfterViewInit, OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     // Re-create the widget if the pair or timeframe changes after the view has been initialized.
-    if (this.isViewInitialized && (changes['pair'] || changes['timeframe'])) {
+    if (this.isViewInitialized && (changes['pair'] || changes['timeframe'] || changes['marketType'])) {
       this.createWidget();
     }
   }
@@ -55,8 +56,15 @@ export class ChartComponent implements AfterViewInit, OnChanges {
     // Clearing the container is essential when the pair changes.
     container.innerHTML = ''; 
     
-    // TradingView symbols for forex are like 'FX_IDC:EURUSD'
-    const symbol = `FX_IDC:${this.pair().replace('/', '')}`;
+    // Determine symbol prefix based on market type
+    let prefix = 'FX_IDC:';
+    if (this.marketType() === 'crypto') {
+      prefix = 'BINANCE:';
+    } else if (this.marketType() === 'stocks') {
+      prefix = 'NASDAQ:'; // Defaulting to NASDAQ for now
+    }
+
+    const symbol = `${prefix}${this.pair().replace('/', '')}`;
     const interval = this.timeframeMap[this.timeframe()] || '60';
 
     this.widget = new TradingView.widget({

@@ -9,6 +9,12 @@ export interface Conclusion {
   entry: string;
   take_profit: string;
   stop_loss: string;
+  fear_greed_index?: number;
+  market_sentiment?: 'Bullish' | 'Bearish' | 'Neutral';
+  news_impact_score?: number;
+  confidence_score?: number;
+  key_support?: string;
+  key_resistance?: string;
 }
 
 export interface ForexAnalysis {

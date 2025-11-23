@@ -1,7 +1,46 @@
+<div class="h-full flex flex-col">
+  <h3 class="text-xl font-semibold mb-4 text-sky-300 flex items-center gap-2">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+    </svg>
+    Real-Time Alerts
+  </h3>
 
-<div class="space-y-4">
-    <h2 class="text-2xl font-semibold text-sky-300">Alerts</h2>
-    <div class="flex items-center justify-center h-full text-center text-gray-500 min-h-[100px] bg-gray-700/20 rounded-lg">
-        <p>Real-time market alerts will appear here.</p>
-    </div>
+  <div class="flex-1 flex items-center justify-center">
+    @if (currentSignal()) {
+      <div class="w-full bg-gray-900/50 border-2 rounded-lg p-6 animate-pulse"
+           [class.border-emerald-500]="currentSignal()?.type === 'Buy'"
+           [class.border-rose-500]="currentSignal()?.type === 'Sell'">
+        
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-2xl font-black uppercase tracking-widest"
+                [class.text-emerald-400]="currentSignal()?.type === 'Buy'"
+                [class.text-rose-400]="currentSignal()?.type === 'Sell'">
+            {{ currentSignal()?.type }} SIGNAL
+          </span>
+          <span class="bg-gray-800 px-3 py-1 rounded text-sm font-mono text-white">
+            {{ currentSignal()?.price | currency:'USD':'symbol':'1.2-5' }}
+          </span>
+        </div>
+        
+        <p class="text-gray-300 text-sm">
+          {{ currentSignal()?.reason }}
+        </p>
+        
+        <div class="mt-4 text-xs text-gray-500 text-center uppercase tracking-wider">
+          Signal detected on latest candle
+        </div>
+      </div>
+    } @else {
+      <div class="text-center text-gray-500">
+        <div class="mb-2 opacity-50">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <p>No active signals for this pair/timeframe.</p>
+        <p class="text-xs mt-2 opacity-75">Monitoring strategy conditions...</p>
+      </div>
+    }
+  </div>
 </div>

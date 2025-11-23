@@ -14,7 +14,7 @@ import { FormsModule } from '@angular/forms';
                 [(ngModel)]="selectedPair"
                 (ngModelChange)="onPairChange($event)"
                 class="w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500">
-          @for (pair of currencyPairs; track pair) {
+          @for (pair of availablePairs(); track pair) {
             <option [value]="pair">{{ pair }}</option>
           }
         </select>
@@ -62,9 +62,9 @@ export class ControlsComponent {
   selectedTimeframe = '1H';
   useThinkingMode = false;
 
-  readonly currencyPairs = [
+  availablePairs = input<string[]>([
     'EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF', 'AUD/USD', 'USD/CAD', 'NZD/USD', 'EUR/GBP', 'EUR/JPY', 'GBP/JPY'
-  ];
+  ]);
 
   readonly timeframes = [
       { value: '15m', label: '15 Minutes' },

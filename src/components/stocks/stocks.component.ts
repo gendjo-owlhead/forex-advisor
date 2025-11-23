@@ -3,20 +3,20 @@ import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { MarketDashboardComponent } from '../shared/market-dashboard/market-dashboard.component';
 
 @Component({
-  selector: 'app-forex',
+  selector: 'app-stocks',
   standalone: true,
   template: `
     <app-market-dashboard 
-      marketType="forex" 
-      initialPair="EUR/USD"
-      [availablePairs]="forexPairs">
+      marketType="stocks" 
+      initialPair="AAPL"
+      [availablePairs]="stockPairs">
     </app-market-dashboard>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MarketDashboardComponent],
 })
-export class ForexComponent {
-  readonly forexPairs = [
-    'EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF', 'AUD/USD', 'USD/CAD', 'NZD/USD', 'EUR/GBP', 'EUR/JPY', 'GBP/JPY'
+export class StocksComponent {
+  readonly stockPairs = [
+    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'AMD', 'NFLX', 'INTC'
   ];
 }

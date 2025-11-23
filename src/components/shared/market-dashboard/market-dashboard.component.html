@@ -5,11 +5,30 @@
   <div class="lg:col-span-2 flex flex-col gap-8">
     <section class="bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700">
       <app-controls 
-          [initialPair]="selectedPair()" 
+          [initialPair]="initialPair()" 
+          [availablePairs]="availablePairs()"
           (pairSelected)="handlePairSelection($event)"
           (timeframeSelected)="handleTimeframeSelection($event)"
           (analyze)="handleAnalysisRequest($event)">
       </app-controls>
+    </section>
+
+    <!-- Strategy Selector -->
+    <section class="bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700">
+      <h3 class="text-xl font-semibold mb-4 text-sky-300">📊 Backtesting Strategy</h3>
+      <div class="flex flex-col gap-2">
+        <label for="strategy-select" class="text-sm text-gray-300">Select Strategy:</label>
+        <select 
+          id="strategy-select"
+          [value]="selectedStrategy()"
+          (change)="handleStrategySelection($any($event.target).value)"
+          class="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-sky-500 focus:outline-none">
+          @for (strategy of availableStrategies; track strategy.id) {
+            <option [value]="strategy.id">{{strategy.name}}</option>
+          }
+        </select>
+        <p class="text-xs text-gray-400 mt-2">Change strategy to see different backtesting results</p>
+      </div>
     </section>
 
     <section class="bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700">
@@ -18,25 +37,26 @@
     
     <section class="bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700">
         <app-performance
-            [winRate]="winRate()"
-            [totalTrades]="totalTrades()"
-            [profitFactor]="profitFactor()">
+            [winRate]="realWinRate()"
+            [totalTrades]="realTotalTrades()"
+            [profitFactor]="realProfitFactor()"
+            [candlesUsed]="candlesUsed()">
         </app-performance>
     </section>
 
     <section class="bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700">
         <app-trade-log 
-            [trades]="tradeHistory()"
-            (validate)="handleTradeValidation($event)">
+            [trades]="realTrades()"
+            [strategyId]="selectedStrategy()">
         </app-trade-log>
     </section>
 
     <section class="bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700">
-        <app-augmented-graph></app-augmented-graph>
+        <app-sentiment-dashboard [conclusion]="analysisResult()?.conclusion"></app-sentiment-dashboard>
     </section>
 
      <section class="bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700">
-        <app-alerts></app-alerts>
+        <app-alerts [currentSignal]="currentSignal()"></app-alerts>
     </section>
   </div>
 
@@ -44,7 +64,7 @@
   <div class="lg:col-span-3 flex flex-col gap-8">
     <section class="bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700">
       <h2 class="text-2xl font-semibold mb-4 text-sky-300">Price Chart: {{ selectedPair() }} ({{ selectedTimeframe() }})</h2>
-      <app-chart [pair]="selectedPair()" [timeframe]="selectedTimeframe()"></app-chart>
+      <app-chart [pair]="selectedPair()" [timeframe]="selectedTimeframe()" [marketType]="marketType()"></app-chart>
     </section>
     
     <section class="bg-gray-800/50 rounded-lg p-6 shadow-2xl border border-gray-700 min-h-[400px]">

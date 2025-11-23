@@ -13,4 +13,5 @@ export class PerformanceComponent {
   winRate = input.required<number>();
   totalTrades = input.required<number>();
   profitFactor = input.required<number>();
+  candlesUsed = input<number>(0);
 }
