@@ -1,8 +1,6 @@
 
-
-
 <div class="space-y-4">
-    <h2 class="text-2xl font-semibold text-sky-300">Backtesting & Performance</h2>
+    <h2 class="text-2xl font-semibold text-sky-300">Performance Metrics</h2>
 
     @if (totalTrades() > 0) {
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-center animate-fade-in">
@@ -25,12 +23,12 @@
       </div>
     } @else {
       <div class="flex items-center justify-center h-full text-center text-gray-500 min-h-[70px] bg-gray-700/20 rounded-lg">
-          <p>Performance data will appear here after your first analysis.</p>
+          <p>Validated performance will appear here once you close a trade in the log.</p>
       </div>
     }
 
     <div class="text-xs text-center text-gray-500 pt-2">
-        <p>Performance metrics are based on historical data simulation.</p>
+        <p>Metrics are based on user-validated trades from the Trade Log.</p>
     </div>
 </div>
 

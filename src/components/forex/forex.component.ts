@@ -1,6 +1,4 @@
 
-
-
 import { Component, ChangeDetectionStrategy, signal, effect, ChangeDetectorRef, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { GeminiService } from '../../services/gemini.service';
@@ -10,7 +8,8 @@ import { AnalysisComponent } from '../analysis/analysis.component';
 import { ConclusionComponent } from '../conclusion/conclusion.component';
 import { AlertsComponent } from '../alerts/alerts.component';
 import { AugmentedGraphComponent } from '../augmented-graph/augmented-graph.component';
-import { BacktestingComponent } from '../backtesting/backtesting.component';
+import { PerformanceComponent } from '../backtesting/backtesting.component';
+import { TradeLogComponent } from '../trade-log/trade-log.component';
 import { ForexAnalysis, TradeRecord, Conclusion } from '../../models/analysis.model';
 
 @Component({
@@ -26,7 +25,8 @@ import { ForexAnalysis, TradeRecord, Conclusion } from '../../models/analysis.mo
     ConclusionComponent,
     AlertsComponent,
     AugmentedGraphComponent,
-    BacktestingComponent
+    PerformanceComponent,
+    TradeLogComponent
   ],
 })
 export class ForexComponent {
@@ -40,9 +40,10 @@ export class ForexComponent {
   selectedTimeframe = signal<string>('1H');
   tradeHistory = signal<TradeRecord[]>([]);
 
-  // Computed signals for backtesting
-  totalTrades = computed(() => this.tradeHistory().length);
-  wins = computed(() => this.tradeHistory().filter(t => t.outcome === 'Win').length);
+  // Computed signals for performance metrics based on validated trades
+  validatedTrades = computed(() => this.tradeHistory().filter(t => t.status !== 'Pending'));
+  totalTrades = computed(() => this.validatedTrades().length);
+  wins = computed(() => this.validatedTrades().filter(t => t.status === 'Win').length);
   losses = computed(() => this.totalTrades() - this.wins());
   winRate = computed(() => {
     const total = this.totalTrades();
@@ -92,9 +93,9 @@ export class ForexComponent {
       const result = await this.geminiService.getForexPrediction(pair, useThinkingMode, timeframe);
       this.analysisResult.set(result);
       
-      // Add to backtesting history if there is a trade signal
+      // Add to trade log if there is a trade signal
       if (result.conclusion && result.conclusion.signal !== 'Hold') {
-        this.updateTradeHistory(result.conclusion, pair, timeframe);
+        this.addTradeToLog(result.conclusion, pair, timeframe);
       }
 
     } catch (e) {
@@ -105,17 +106,23 @@ export class ForexComponent {
     }
   }
 
-  private updateTradeHistory(conclusion: Conclusion, pair: string, timeframe: string): void {
-    // Simulate the outcome of the trade for demonstration purposes
-    const outcome = Math.random() < 0.725 ? 'Win' : 'Loss'; // Simulating a ~72.5% win rate
-
+  private addTradeToLog(conclusion: Conclusion, pair: string, timeframe: string): void {
     const newRecord: TradeRecord = {
+      id: Date.now(), // Simple unique ID
       conclusion,
-      outcome,
+      status: 'Pending',
       pair,
       timeframe,
     };
 
-    this.tradeHistory.update(currentHistory => [...currentHistory, newRecord]);
+    this.tradeHistory.update(currentHistory => [newRecord, ...currentHistory]);
+  }
+
+  handleTradeValidation(event: { id: number; status: 'Win' | 'Loss' }): void {
+    this.tradeHistory.update(currentHistory => 
+      currentHistory.map(trade => 
+        trade.id === event.id ? { ...trade, status: event.status } : trade
+      )
+    );
   }
 }

@@ -1,0 +1,74 @@
+
+<div class="space-y-4">
+  <h2 class="text-2xl font-semibold text-sky-300">Trade Log</h2>
+
+  @if (trades().length > 0) {
+    <div class="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+      @for (trade of trades(); track trade.id) {
+        <div class="bg-gray-700/50 p-4 rounded-lg animate-fade-in">
+          <div class="flex justify-between items-start">
+            <div>
+              <div class="flex items-center gap-3">
+                @if (trade.conclusion.signal === 'Buy') {
+                  <span class="font-bold text-emerald-400">BUY</span>
+                } @else {
+                  <span class="font-bold text-red-400">SELL</span>
+                }
+                <span class="font-semibold text-white">{{ trade.pair }}</span>
+                <span class="text-xs text-gray-400 bg-gray-600 px-2 py-0.5 rounded-full">{{ trade.timeframe }}</span>
+              </div>
+              <div class="text-xs text-gray-400 mt-2">
+                <span>Entry: {{ trade.conclusion.entry }}</span> |
+                <span>TP: {{ trade.conclusion.take_profit }}</span> |
+                <span>SL: {{ trade.conclusion.stop_loss }}</span>
+              </div>
+            </div>
+            
+            <div class="text-right">
+              @if (trade.status === 'Pending') {
+                <div class="flex flex-col sm:flex-row gap-2">
+                   <button (click)="onValidate(trade.id, 'Win')"
+                          class="px-3 py-1 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md transition-colors">
+                     Mark as Win
+                   </button>
+                   <button (click)="onValidate(trade.id, 'Loss')"
+                           class="px-3 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors">
+                     Mark as Loss
+                   </button>
+                </div>
+              } @else if (trade.status === 'Win') {
+                <div class="flex items-center gap-2 px-3 py-1 text-emerald-300 bg-emerald-900/50 border border-emerald-700 rounded-md">
+                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                  </svg>
+                  <span class="text-sm font-semibold">Win</span>
+                </div>
+              } @else if (trade.status === 'Loss') {
+                <div class="flex items-center gap-2 px-3 py-1 text-red-300 bg-red-900/50 border border-red-700 rounded-md">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                  </svg>
+                  <span class="text-sm font-semibold">Loss</span>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  } @else {
+    <div class="flex items-center justify-center h-full text-center text-gray-500 min-h-[100px] bg-gray-700/20 rounded-lg">
+        <p>Generated trade signals will appear here for validation.</p>
+    </div>
+  }
+</div>
+
+<style>
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in {
+    animation: fade-in 0.5s ease-out forwards;
+  }
+</style>

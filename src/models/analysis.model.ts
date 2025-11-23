@@ -18,8 +18,9 @@ export interface ForexAnalysis {
 }
 
 export interface TradeRecord {
+  id: number;
   conclusion: Conclusion;
-  outcome: 'Win' | 'Loss';
+  status: 'Pending' | 'Win' | 'Loss';
   pair: string;
   timeframe: string;
 }
