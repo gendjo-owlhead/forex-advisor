@@ -57,6 +57,8 @@ export class MarketDashboardComponent {
     { id: '50ema-trend-continuation', name: '50 EMA Trend Continuation (Price Action)' },
     { id: 'bb-snap-back', name: 'BB Snap Back (EMA200 + RSI7)' },
     { id: 'hoffman-irb', name: 'Hoffman IRB (62-65% WR)' },
+    { id: 'htf-sma-crossover-momentum', name: 'HTF Trend SMA Crossover + Momentum' },
+    { id: 'dynamic-retest', name: '1H Dynamic Retest (Trend Continuation)' },
   ];
 
   // Backtest Signals

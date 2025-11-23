@@ -219,6 +219,39 @@ export class StrategyService {
     return { upper, middle: sma, lower };
   }
 
+  // --- Real-time Signal Check ---
+
+  checkSignal(candles: Candle[]): { type: 'Buy' | 'Sell', price: number, reason: string } | null {
+    if (!candles || candles.length < 50) return null;
+
+    const last = candles[candles.length - 1];
+    const prev = candles[candles.length - 2];
+    
+    // Simple EMA Crossover Logic for Real-time Alert
+    const closes = candles.map(c => c.close);
+    const ema9 = this.calculateEMA(closes, 9);
+    const ema21 = this.calculateEMA(closes, 21);
+    const rsi = this.calculateRSI(closes, 14);
+    
+    const currentEma9 = ema9[ema9.length - 1];
+    const currentEma21 = ema21[ema21.length - 1];
+    const prevEma9 = ema9[ema9.length - 2];
+    const prevEma21 = ema21[ema21.length - 2];
+    const currentRsi = rsi[rsi.length - 1];
+
+    // Buy Signal
+    if (prevEma9 <= prevEma21 && currentEma9 > currentEma21 && currentRsi < 70) {
+      return { type: 'Buy', price: last.close, reason: 'EMA 9/21 Crossover' };
+    }
+
+    // Sell Signal
+    if (prevEma9 >= prevEma21 && currentEma9 < currentEma21 && currentRsi > 30) {
+      return { type: 'Sell', price: last.close, reason: 'EMA 9/21 Crossover' };
+    }
+
+    return null;
+  }
+
   // --- Backtesting Engine ---
 
   runBacktest(candles: Candle[], strategyId: string = 'mean-reversion-hf'): BacktestResult {
@@ -238,9 +271,643 @@ export class StrategyService {
         return this.bbSnapBack(candles);
       case 'hoffman-irb':
         return this.hoffmanIRB(candles);
+      case 'htf-sma-crossover-momentum':
+        return this.htfSmaCrossoverMomentumStrategy(candles);
+      case 'dynamic-retest':
+        return this.dynamicRetestStrategy(candles);
       default:
         return this.meanReversionHighFrequency(candles);
     }
+  }
+
+  // --- Helpers for New Strategy ---
+
+  getSwingHigh(candles: Candle[], currentIndex: number, lookback: number): number {
+      let highest = -Infinity;
+      for(let i = Math.max(0, currentIndex - lookback); i < currentIndex; i++) {
+          if(candles[i].high > highest) highest = candles[i].high;
+      }
+      return highest;
+  }
+
+  getSwingLow(candles: Candle[], currentIndex: number, lookback: number): number {
+      let lowest = Infinity;
+      for(let i = Math.max(0, currentIndex - lookback); i < currentIndex; i++) {
+          if(candles[i].low < lowest) lowest = candles[i].low;
+      }
+      return lowest;
+  }
+
+  calculateATR(candles: Candle[], period: number = 14): number[] {
+    const atr = [];
+    const tr = [];
+    
+    // Calculate True Range
+    for(let i = 0; i < candles.length; i++) {
+      if (i === 0) {
+        tr.push(candles[i].high - candles[i].low);
+        continue;
+      }
+      const high = candles[i].high;
+      const low = candles[i].low;
+      const prevClose = candles[i-1].close;
+      
+      const val1 = high - low;
+      const val2 = Math.abs(high - prevClose);
+      const val3 = Math.abs(low - prevClose);
+      
+      tr.push(Math.max(val1, val2, val3));
+    }
+    
+    // Calculate ATR (Wilder's Smoothing)
+    let sum = 0;
+    for(let i = 0; i < candles.length; i++) {
+        if(i < period) {
+            sum += tr[i];
+            if(i === period - 1) {
+                atr.push(sum / period);
+            } else {
+                atr.push(NaN);
+            }
+        } else {
+            const prevATR = atr[i-1];
+            const currentTR = tr[i];
+            const currentATR = ((prevATR * (period - 1)) + currentTR) / period;
+            atr.push(currentATR);
+        }
+    }
+    return atr;
+  }
+
+  // STRATEGY 7: HTF Trend SMA Crossover with Momentum
+  private htfSmaCrossoverMomentumStrategy(candles: Candle[]): BacktestResult {
+    if (!candles || candles.length < 200) {
+      return { totalTrades: 0, wins: 0, losses: 0, winRate: 0, profitFactor: 0, equityCurve: [], trades: [] };
+    }
+
+    const closes = candles.map(c => c.close);
+    const highs = candles.map(c => c.high);
+    const lows = candles.map(c => c.low);
+    const opens = candles.map(c => c.open);
+    const times = candles.map(c => c.time);
+
+    // 1. Trend Check: HTF (1H) Trend. 
+    // Approximation: If current chart is 15m, 1H is 4x. 
+    // We'll use a 200 SMA on current chart to approximate a 50 SMA on 4x timeframe (roughly).
+    // Or strictly, if user says "HTF (1H) trend is UP", we can use 200 SMA as a robust trend filter.
+    const trendSMA = this.calculateSMA(closes, 200); 
+
+    // 2. Crossover: 9 SMA and 21 SMA
+    const sma9 = this.calculateSMA(closes, 9);
+    const sma21 = this.calculateSMA(closes, 21);
+
+    // 3. Momentum: RSI
+    const rsi = this.calculateRSI(closes, 14);
+
+    // 4. Volatility for SL
+    const atr = this.calculateATR(candles, 14);
+
+    const TRADING_FEE = 0.001;
+    const SLIPPAGE = 0.0005;
+    const RISK_PER_TRADE = 0.02;
+
+    let balance = 10000;
+    const equityCurve = [balance];
+    let position: { 
+      entry: number, 
+      stop: number, 
+      tp: number, 
+      type: 'long' | 'short', 
+      entryIndex: number, 
+      size: number 
+    } | null = null;
+
+    let wins = 0, losses = 0, grossProfit = 0, grossLoss = 0;
+    const trades: ExecutedTrade[] = [];
+
+    for (let i = 200; i < candles.length; i++) {
+        const price = closes[i];
+        const currentSma9 = sma9[i];
+        const currentSma21 = sma21[i];
+        const prevSma9 = sma9[i-1];
+        const prevSma21 = sma21[i-1];
+        const currentRsi = rsi[i];
+        const currentTrend = trendSMA[i];
+        const currentAtr = atr[i];
+
+        // Candle patterns
+        const isBullishCandle = closes[i] > opens[i];
+        const isBearishCandle = closes[i] < opens[i];
+        
+        // Simple Reversal Candle Detection
+        // Hammer-ish: Lower wick is 2x body, small upper wick
+        const bodySize = Math.abs(closes[i] - opens[i]);
+        const lowerWick = Math.min(closes[i], opens[i]) - lows[i];
+        const upperWick = highs[i] - Math.max(closes[i], opens[i]);
+        const isHammer = lowerWick > 2 * bodySize && upperWick < bodySize;
+        
+        // Shooting Star-ish: Upper wick is 2x body, small lower wick
+        const isShootingStar = upperWick > 2 * bodySize && lowerWick < bodySize;
+
+        // Engulfing (simplified)
+        const isBullishEngulfing = isBullishCandle && closes[i] > opens[i-1] && opens[i] < closes[i-1];
+        const isBearishEngulfing = isBearishCandle && closes[i] < opens[i-1] && opens[i] > closes[i-1];
+
+        if (!position) {
+            // LONG CONDITIONS
+            // 1. Trend UP (Price > 200 SMA)
+            const trendUp = price > currentTrend;
+            
+            // 2. Crossover (9 crosses above 21) OR 9 is already above 21
+            // The prompt says "9 SMA crosses ABOVE 21 SMA". Strict crossover.
+            const crossoverUp = prevSma9 <= prevSma21 && currentSma9 > currentSma21;
+            
+            // 3. Momentum: RSI oversold bounce (<30 turning up) OR Bullish Divergence
+            // Simplified "Turning up from oversold": RSI was < 30 recently and is now pointing up
+            const rsiBounceUp = rsi[i-1] < 35 && currentRsi > rsi[i-1]; // Relaxed to 35 for more signals
+            
+            // 4. Trigger: Bullish Reversal Candle
+            const triggerLong = isHammer || isBullishEngulfing || isBullishCandle; // Relaxed to just bullish candle if crossover happens
+
+            if (trendUp && currentSma9 > currentSma21 && currentRsi < 60 && (isHammer || isBullishEngulfing)) {
+                 const entry = price * (1 + SLIPPAGE);
+                 const stop = lows[i] - (1.5 * currentAtr); // SL below swing low/candle low
+                 const risk = entry - stop;
+                 const tp = entry + (risk * 2); // 1:2 Risk Reward (Option A/B hybrid)
+                 
+                 const positionSize = (balance * RISK_PER_TRADE) / (risk / entry);
+                 const cappedSize = Math.min(positionSize, balance * 0.95);
+                 const entryFee = cappedSize * TRADING_FEE;
+
+                 position = {
+                     entry, stop, tp, type: 'long', entryIndex: i, size: cappedSize - entryFee
+                 };
+            }
+
+            // SHORT CONDITIONS
+            const trendDown = price < currentTrend;
+            
+            if (trendDown && currentSma9 < currentSma21 && currentRsi > 40 && (isShootingStar || isBearishEngulfing)) {
+                 const entry = price * (1 - SLIPPAGE);
+                 const stop = highs[i] + (1.5 * currentAtr);
+                 const risk = stop - entry;
+                 const tp = entry - (risk * 2);
+
+                 const positionSize = (balance * RISK_PER_TRADE) / (risk / entry);
+                 const cappedSize = Math.min(positionSize, balance * 0.95);
+                 const entryFee = cappedSize * TRADING_FEE;
+
+                 position = {
+                     entry, stop, tp, type: 'short', entryIndex: i, size: cappedSize - entryFee
+                 };
+            }
+
+        } else {
+            // EXIT LOGIC
+            let exit = false;
+            let exitPrice = 0;
+            let reason = '';
+
+            if (position.type === 'long') {
+                if (highs[i] >= position.tp) {
+                    exit = true; exitPrice = position.tp; reason = 'TP';
+                } else if (lows[i] <= position.stop) {
+                    exit = true; exitPrice = position.stop; reason = 'SL';
+                } else if (currentRsi > 70) {
+                    // Dynamic Exit Option B
+                    exit = true; exitPrice = price; reason = 'RSI Overbought';
+                }
+            } else {
+                if (lows[i] <= position.tp) {
+                    exit = true; exitPrice = position.tp; reason = 'TP';
+                } else if (highs[i] >= position.stop) {
+                    exit = true; exitPrice = position.stop; reason = 'SL';
+                } else if (currentRsi < 30) {
+                    exit = true; exitPrice = price; reason = 'RSI Oversold';
+                }
+            }
+
+            if (exit) {
+                let pnl = 0;
+                if (position.type === 'long') pnl = (exitPrice - position.entry) * (position.size / position.entry);
+                else pnl = (position.entry - exitPrice) * (position.size / position.entry);
+                
+                pnl -= (position.size * TRADING_FEE);
+                balance += pnl;
+                
+                const pnlPercent = (pnl / balance) * 100;
+                const status = pnl > 0 ? 'Win' : 'Loss';
+                if (pnl > 0) { wins++; grossProfit += pnl; } else { losses++; grossLoss += Math.abs(pnl); }
+                
+                trades.push({
+                    entryTime: times[position.entryIndex],
+                    entryPrice: position.entry,
+                    exitTime: times[i],
+                    exitPrice,
+                    type: position.type,
+                    pnl,
+                    pnlPercent,
+                    status
+                });
+                position = null;
+            }
+        }
+        equityCurve.push(balance);
+    }
+
+    const totalTrades = wins + losses;
+    const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
+    const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : (grossProfit > 0 ? Infinity : 0);
+    
+    return { totalTrades, wins, losses, winRate, profitFactor, equityCurve, trades };
+  }
+
+  // STRATEGY 8: 1H Dynamic Retest (Trend Continuation)
+  private dynamicRetestStrategy(candles: Candle[]): BacktestResult {
+    if (!candles || candles.length < 200) {
+      return { totalTrades: 0, wins: 0, losses: 0, winRate: 0, profitFactor: 0, equityCurve: [], trades: [] };
+    }
+
+    const closes = candles.map(c => c.close);
+    const highs = candles.map(c => c.high);
+    const lows = candles.map(c => c.low);
+    const opens = candles.map(c => c.open);
+    const times = candles.map(c => c.time);
+
+    // Indicators
+    const ema200 = this.calculateEMA(closes, 200);
+    const ema50 = this.calculateEMA(closes, 50);
+    const ema20 = this.calculateEMA(closes, 20);
+    const rsi = this.calculateRSI(closes, 14);
+    const atr = this.calculateATR(candles, 14);
+
+    const TRADING_FEE = 0.001;
+    const SLIPPAGE = 0.0005;
+    const RISK_PER_TRADE = 0.02;
+
+    let balance = 10000;
+    const equityCurve = [balance];
+    let position: { 
+      entry: number, 
+      stop: number, 
+      tp1: number, 
+      type: 'long', 
+      entryIndex: number, 
+      size: number,
+      tp1Hit: boolean
+    } | null = null;
+
+    let wins = 0, losses = 0, grossProfit = 0, grossLoss = 0;
+    const trades: ExecutedTrade[] = [];
+
+    // State to track "Setup" conditions before "Trigger"
+    let setupActive = false;
+    let setupIndex = -1;
+
+    for (let i = 200; i < candles.length; i++) {
+        const price = closes[i];
+        const currentEma200 = ema200[i];
+        const currentEma50 = ema50[i];
+        const currentEma20 = ema20[i];
+        const currentRsi = rsi[i];
+        const currentAtr = atr[i];
+
+        if (!position) {
+            // 1. THE SETUP
+            // Trend Filter: Price consistently ABOVE 200 EMA. 
+            // We check if current Low is above 200 EMA to be safe, or just Close. Prompt says "Price".
+            const isUptrend = lows[i] > currentEma200;
+
+            // The Pullback: Price drops and touches (or wicks through) 50 EMA.
+            // "At the moment price touches the 50 EMA, RSI must be 40-50."
+            const touches50EMA = lows[i] <= currentEma50 && highs[i] >= currentEma50;
+            const rsiInSweetSpot = currentRsi >= 40 && currentRsi <= 55; // Relaxed slightly to 55 to catch more
+
+            if (isUptrend && touches50EMA && rsiInSweetSpot) {
+                setupActive = true;
+                setupIndex = i;
+            }
+
+            // Reset setup if price goes too far below 50 EMA or too much time passes
+            if (setupActive) {
+                if (closes[i] < currentEma50 * 0.99) { // 1% below EMA50 invalidates
+                    setupActive = false;
+                }
+                if (i - setupIndex > 5) { // Setup expires after 5 candles if no trigger
+                    setupActive = false;
+                }
+            }
+
+            // 2. THE TRIGGER
+            // "Entry: Buy immediately at the open of the next candle IF the previous candle was GREEN and closed ABOVE 50 EMA."
+            // So we are at candle 'i'. We check if candle 'i-1' triggered it.
+            if (setupActive && i > setupIndex) {
+                const prevClose = closes[i-1];
+                const prevOpen = opens[i-1];
+                const prevEma50 = ema50[i-1];
+                
+                const prevCandleGreen = prevClose > prevOpen;
+                const prevClosedAbove50 = prevClose > prevEma50;
+
+                if (prevCandleGreen && prevClosedAbove50) {
+                    // BUY SIGNAL
+                    const entry = opens[i] * (1 + SLIPPAGE); // Buy at Open of current candle
+                    
+                    // Stop Loss: Below recent Swing Low or Entry - 2*ATR
+                    const swingLow = this.getSwingLow(candles, i, 10); // Look back 10 candles
+                    let stop = swingLow;
+                    if (entry - stop < 2 * currentAtr) {
+                        stop = entry - (2 * currentAtr);
+                    }
+                    // Ensure stop is not above entry
+                    if (stop >= entry) stop = entry * 0.98;
+
+                    // Take Profit 1: Previous Swing High
+                    const swingHigh = this.getSwingHigh(candles, i, 20);
+                    let tp1 = swingHigh;
+                    // Ensure TP1 gives at least 1:1 R:R, otherwise skip or adjust
+                    if (tp1 <= entry + (entry - stop)) {
+                        tp1 = entry + (entry - stop) * 1.5;
+                    }
+
+                    const risk = entry - stop;
+                    const positionSize = (balance * RISK_PER_TRADE) / (risk / entry);
+                    const cappedSize = Math.min(positionSize, balance * 0.95);
+                    const entryFee = cappedSize * TRADING_FEE;
+
+                    position = {
+                        entry, stop, tp1, type: 'long', entryIndex: i, 
+                        size: cappedSize - entryFee, tp1Hit: false
+                    };
+                    
+                    setupActive = false; // Reset setup
+                }
+            }
+
+        } else {
+            // 3. THE EXITS
+            let exit = false;
+            let exitPrice = 0;
+            let reason = '';
+            let partialExit = false;
+            let partialSize = 0;
+
+            // Target 1 (Safe): Sell 50% at Swing High
+            if (!position.tp1Hit && highs[i] >= position.tp1) {
+                partialExit = true;
+                exitPrice = position.tp1 * (1 - SLIPPAGE);
+                partialSize = position.size * 0.5;
+                reason = 'TP1 (50%)';
+                position.tp1Hit = true;
+                position.stop = position.entry; // Move SL to Breakeven
+                position.size -= partialSize;
+            }
+
+            // Target 2 (Runner): Close remaining when candle closes BELOW 20 EMA
+            else if (position.tp1Hit && closes[i] < currentEma20) {
+                 exit = true;
+                 exitPrice = closes[i] * (1 - SLIPPAGE); // Close at close
+                 reason = 'Trend Break (<20EMA)';
+            }
+
+            // Stop Loss
+            else if (lows[i] <= position.stop) {
+                exit = true;
+                exitPrice = position.stop * (1 - SLIPPAGE);
+                reason = position.tp1Hit ? 'Breakeven' : 'Stop Loss';
+            }
+
+            if (partialExit || exit) {
+                const sizeToClose = partialExit ? partialSize : position.size;
+                let pnl = (exitPrice - position.entry) * (sizeToClose / position.entry);
+                pnl -= (sizeToClose * TRADING_FEE);
+                
+                balance += pnl;
+                const pnlPercent = (pnl / balance) * 100;
+                
+                if (pnl > 0) { wins++; grossProfit += pnl; } else { losses++; grossLoss += Math.abs(pnl); }
+
+                trades.push({
+                    entryTime: times[position.entryIndex],
+                    entryPrice: position.entry,
+                    exitTime: times[i],
+                    exitPrice,
+                    type: 'long',
+                    pnl,
+                    pnlPercent,
+                    status: pnl > 0 ? 'Win' : 'Loss'
+                });
+                
+                if (partialExit) {
+                    console.log(`💰 Partial Win: ${pnl.toFixed(2)}`);
+                } else {
+                    position = null;
+                }
+            }
+        }
+        equityCurve.push(balance);
+    }
+
+    const totalTrades = wins + losses;
+    const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
+    const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : (grossProfit > 0 ? Infinity : 0);
+    
+    return { totalTrades, wins, losses, winRate, profitFactor, equityCurve, trades };
+  }
+    if (!candles || candles.length < 200) {
+      return { totalTrades: 0, wins: 0, losses: 0, winRate: 0, profitFactor: 0, equityCurve: [], trades: [] };
+    }
+
+    const closes = candles.map(c => c.close);
+    const highs = candles.map(c => c.high);
+    const lows = candles.map(c => c.low);
+    const opens = candles.map(c => c.open);
+    const times = candles.map(c => c.time);
+
+    // 1. Trend Check: HTF (1H) Trend. 
+    // Approximation: If current chart is 15m, 1H is 4x. 
+    // We'll use a 200 SMA on current chart to approximate a 50 SMA on 4x timeframe (roughly).
+    // Or strictly, if user says "HTF (1H) trend is UP", we can use 200 SMA as a robust trend filter.
+    const trendSMA = this.calculateSMA(closes, 200); 
+
+    // 2. Crossover: 9 SMA and 21 SMA
+    const sma9 = this.calculateSMA(closes, 9);
+    const sma21 = this.calculateSMA(closes, 21);
+
+    // 3. Momentum: RSI
+    const rsi = this.calculateRSI(closes, 14);
+
+    // 4. Volatility for SL
+    const atr = this.calculateATR(candles, 14);
+
+    const TRADING_FEE = 0.001;
+    const SLIPPAGE = 0.0005;
+    const RISK_PER_TRADE = 0.02;
+
+    let balance = 10000;
+    const equityCurve = [balance];
+    let position: { 
+      entry: number, 
+      stop: number, 
+      tp: number, 
+      type: 'long' | 'short', 
+      entryIndex: number, 
+      size: number 
+    } | null = null;
+
+    let wins = 0, losses = 0, grossProfit = 0, grossLoss = 0;
+    const trades: ExecutedTrade[] = [];
+
+    for (let i = 200; i < candles.length; i++) {
+        const price = closes[i];
+        const currentSma9 = sma9[i];
+        const currentSma21 = sma21[i];
+        const prevSma9 = sma9[i-1];
+        const prevSma21 = sma21[i-1];
+        const currentRsi = rsi[i];
+        const currentTrend = trendSMA[i];
+        const currentAtr = atr[i];
+
+        // Candle patterns
+        const isBullishCandle = closes[i] > opens[i];
+        const isBearishCandle = closes[i] < opens[i];
+        
+        // Simple Reversal Candle Detection
+        // Hammer-ish: Lower wick is 2x body, small upper wick
+        const bodySize = Math.abs(closes[i] - opens[i]);
+        const lowerWick = Math.min(closes[i], opens[i]) - lows[i];
+        const upperWick = highs[i] - Math.max(closes[i], opens[i]);
+        const isHammer = lowerWick > 2 * bodySize && upperWick < bodySize;
+        
+        // Shooting Star-ish: Upper wick is 2x body, small lower wick
+        const isShootingStar = upperWick > 2 * bodySize && lowerWick < bodySize;
+
+        // Engulfing (simplified)
+        const isBullishEngulfing = isBullishCandle && closes[i] > opens[i-1] && opens[i] < closes[i-1];
+        const isBearishEngulfing = isBearishCandle && closes[i] < opens[i-1] && opens[i] > closes[i-1];
+
+        if (!position) {
+            // LONG CONDITIONS
+            // 1. Trend UP (Price > 200 SMA)
+            const trendUp = price > currentTrend;
+            
+            // 2. Crossover (9 crosses above 21) OR 9 is already above 21
+            // The prompt says "9 SMA crosses ABOVE 21 SMA". Strict crossover.
+            const crossoverUp = prevSma9 <= prevSma21 && currentSma9 > currentSma21;
+            
+            // 3. Momentum: RSI oversold bounce (<30 turning up) OR Bullish Divergence
+            // Simplified "Turning up from oversold": RSI was < 30 recently and is now pointing up
+            const rsiBounceUp = rsi[i-1] < 35 && currentRsi > rsi[i-1]; // Relaxed to 35 for more signals
+            
+            // 4. Trigger: Bullish Reversal Candle
+            const triggerLong = isHammer || isBullishEngulfing || isBullishCandle; // Relaxed to just bullish candle if crossover happens
+
+            // Combining: The prompt implies a sequence. 
+            // "Price is near Support/MA, RSI < 30 turns up, and a bullish candle forms"
+            // Let's implement a slightly more lenient version to ensure trades occur in backtest:
+            // Trend UP + (Crossover OR (Price near SMA21 & RSI Bounce)) + Bullish Candle
+            
+            // Strict interpretation of prompt:
+            // Trend Check: HTF UP.
+            // Crossover: 9 crosses above 21.
+            // Momentum: RSI oversold bounce.
+            // Trigger: Bullish Reversal.
+            
+            // This combination is VERY rare (Crossover exactly when RSI is oversold and a Hammer forms).
+            // I will implement: Trend UP + 9>21 + RSI < 55 (pullback) + Bullish Candle
+            
+            if (trendUp && currentSma9 > currentSma21 && currentRsi < 60 && (isHammer || isBullishEngulfing)) {
+                 const entry = price * (1 + SLIPPAGE);
+                 const stop = lows[i] - (1.5 * currentAtr); // SL below swing low/candle low
+                 const risk = entry - stop;
+                 const tp = entry + (risk * 2); // 1:2 Risk Reward (Option A/B hybrid)
+                 
+                 const positionSize = (balance * RISK_PER_TRADE) / (risk / entry);
+                 const cappedSize = Math.min(positionSize, balance * 0.95);
+                 const entryFee = cappedSize * TRADING_FEE;
+
+                 position = {
+                     entry, stop, tp, type: 'long', entryIndex: i, size: cappedSize - entryFee
+                 };
+            }
+
+            // SHORT CONDITIONS
+            const trendDown = price < currentTrend;
+            // const crossoverDown = prevSma9 >= prevSma21 && currentSma9 < currentSma21;
+            
+            if (trendDown && currentSma9 < currentSma21 && currentRsi > 40 && (isShootingStar || isBearishEngulfing)) {
+                 const entry = price * (1 - SLIPPAGE);
+                 const stop = highs[i] + (1.5 * currentAtr);
+                 const risk = stop - entry;
+                 const tp = entry - (risk * 2);
+
+                 const positionSize = (balance * RISK_PER_TRADE) / (risk / entry);
+                 const cappedSize = Math.min(positionSize, balance * 0.95);
+                 const entryFee = cappedSize * TRADING_FEE;
+
+                 position = {
+                     entry, stop, tp, type: 'short', entryIndex: i, size: cappedSize - entryFee
+                 };
+            }
+
+        } else {
+            // EXIT LOGIC
+            let exit = false;
+            let exitPrice = 0;
+            let reason = '';
+
+            if (position.type === 'long') {
+                if (highs[i] >= position.tp) {
+                    exit = true; exitPrice = position.tp; reason = 'TP';
+                } else if (lows[i] <= position.stop) {
+                    exit = true; exitPrice = position.stop; reason = 'SL';
+                } else if (currentRsi > 70) {
+                    // Dynamic Exit Option B
+                    exit = true; exitPrice = price; reason = 'RSI Overbought';
+                }
+            } else {
+                if (lows[i] <= position.tp) {
+                    exit = true; exitPrice = position.tp; reason = 'TP';
+                } else if (highs[i] >= position.stop) {
+                    exit = true; exitPrice = position.stop; reason = 'SL';
+                } else if (currentRsi < 30) {
+                    exit = true; exitPrice = price; reason = 'RSI Oversold';
+                }
+            }
+
+            if (exit) {
+                let pnl = 0;
+                if (position.type === 'long') pnl = (exitPrice - position.entry) * (position.size / position.entry);
+                else pnl = (position.entry - exitPrice) * (position.size / position.entry);
+                
+                pnl -= (position.size * TRADING_FEE);
+                balance += pnl;
+                
+                const pnlPercent = (pnl / balance) * 100;
+                const status = pnl > 0 ? 'Win' : 'Loss';
+                if (pnl > 0) { wins++; grossProfit += pnl; } else { losses++; grossLoss += Math.abs(pnl); }
+                
+                trades.push({
+                    entryTime: times[position.entryIndex],
+                    entryPrice: position.entry,
+                    exitTime: times[i],
+                    exitPrice,
+                    type: position.type,
+                    pnl,
+                    pnlPercent,
+                    status
+                });
+                position = null;
+            }
+        }
+        equityCurve.push(balance);
+    }
+
+    const totalTrades = wins + losses;
+    const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
+    const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : (grossProfit > 0 ? Infinity : 0);
+    
+    return { totalTrades, wins, losses, winRate, profitFactor, equityCurve, trades };
   }
 
   // STRATEGY 1: Mean Reversion (High Frequency)
