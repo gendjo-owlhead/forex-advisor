@@ -2179,6 +2179,42 @@ export class StrategyService {
             'Stop: Above IRB high | Target: 1.3R | Breakeven at 1:1'
           ]
         };
+
+      case 'htf-sma-crossover-momentum':
+        return {
+          name: 'HTF Trend SMA Crossover + Momentum',
+          description: 'Trend following strategy combining HTF trend filter (200 SMA) with 9/21 SMA crossover and RSI momentum.',
+          buyRules: [
+            'LONG: Price > 200 SMA (Uptrend)',
+            'Trigger: 9 SMA crosses ABOVE 21 SMA',
+            'Momentum: RSI > 50',
+            'Exit: Trailing Stop or 1:2 Risk:Reward'
+          ],
+          sellRules: [
+            'SHORT: Price < 200 SMA (Downtrend)',
+            'Trigger: 9 SMA crosses BELOW 21 SMA',
+            'Momentum: RSI < 50',
+            'Exit: Trailing Stop or 1:2 Risk:Reward'
+          ]
+        };
+
+      case 'dynamic-retest':
+        return {
+          name: '1H Dynamic Retest (Trend Continuation)',
+          description: 'High-probability trend continuation strategy. Buys dips to 50 EMA in strong uptrends (Price > 200 EMA).',
+          buyRules: [
+            'LONG: Price > 200 EMA (Trend) + Price touches 50 EMA (Dip)',
+            'Momentum: RSI between 40-55 (Sweet Spot)',
+            'Trigger: Next candle Open if prev candle GREEN and closed > 50 EMA',
+            'TP1: Swing High (50%) | TP2: Trail < 20 EMA'
+          ],
+          sellRules: [
+            'SHORT: Price < 200 EMA (Trend) + Price touches 50 EMA (Rally)',
+            'Momentum: RSI between 45-60',
+            'Trigger: Next candle Open if prev candle RED and closed < 50 EMA',
+            'TP1: Swing Low (50%) | TP2: Trail > 20 EMA'
+          ]
+        };
       
       default:
         return {

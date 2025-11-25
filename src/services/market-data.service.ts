@@ -53,7 +53,7 @@ export class MarketDataService {
     const batchCount = Math.ceil(candlesNeeded / maxLimit);
     
     // Limit to reasonable number of batches to avoid rate limits
-    const actualBatches = Math.min(batchCount, 10); // Max 10k candles
+    const actualBatches = Math.min(batchCount, 50); // Max 50k candles (approx 5 years for 1H)
     
     console.log(`📊 Will fetch ${actualBatches} batches of ${maxLimit} candles`);
     
@@ -161,7 +161,7 @@ export class MarketDataService {
       '1D': 365     // 365
     };
     
-    const candlesNeeded = Math.min(intervalsPerYear[timeframe] * 2.5, 10000); // ~2.5 years, max 10k candles
+    const candlesNeeded = Math.min(intervalsPerYear[timeframe] * 5, 50000); // 5 years, max 50k candles
     
     // Set initial price based on market type
     let basePrice = 1.10; // Default for forex
